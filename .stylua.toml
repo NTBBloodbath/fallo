@@ -1,0 +1,6 @@
+syntax = "Lua51"
+column_width = 120
+indent_type = "Spaces"
+indent_width = 3
+quote_style = "AutoPreferDouble"
+collapse_simple_statement = "Always"
