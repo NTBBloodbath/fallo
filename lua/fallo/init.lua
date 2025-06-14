@@ -67,7 +67,8 @@ function Result.wrap(fn, ...)
          stack = debug.traceback("", 2),
       })
    end
-   return Result.ok(returns)
+
+   return Result.ok(#returns > 1 and returns or returns[1])
 end
 
 ---Create a function wrapper that returns Results
