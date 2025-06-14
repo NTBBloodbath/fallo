@@ -6,6 +6,10 @@ Fallo (failure in Spanish) is a modern error handling library for Lua, highly in
 
 TBD
 
+> [!NOTE]
+>
+> Check out the [examples](./examples) directory for usage examples.
+
 ## Contribute
 1. Fork it (https://github.com/NTBBloodbath/fallo/fork)
 2. Create your feature branch (<kbd>git checkout -b my-new-feature</kbd>)
