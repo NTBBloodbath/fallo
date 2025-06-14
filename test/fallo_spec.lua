@@ -251,7 +251,7 @@ describe("Result class", function()
          local res2 = Result.from_assert(failure())
 
          assert.is_true(res1:is_ok())
-         assert.are.same({ "data" }, res1.value)
+         assert.are.same("data", res1.value)
          assert.is_true(res2:is_err())
          assert.are.equal("issue", res2.error.message)
       end)

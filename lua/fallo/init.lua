@@ -236,7 +236,7 @@ end
 ---@return Result
 function Result.from_assert(success, ...)
    if not success then return Result.err(Result.structure_error((...))) end
-   return Result.ok({ ... })
+   return Result.ok(...)
 end
 
 ---Convert to Lua's assert system
