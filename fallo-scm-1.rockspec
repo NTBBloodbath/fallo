@@ -8,6 +8,10 @@ description = {
   license = "LGPL-3",
 }
 
+source = {
+  url = "git+https://github.com/NTBBloodbath/fallo",
+}
+
 dependencies = {
   "lua >= 5.1",
 }
@@ -17,12 +21,15 @@ test_dependencies  = {
 }
 
 build = {
-  type = "builtin"
-  install = {
-    lua = {
-      tide = "lua/tide",
-    },
+  type = "builtin",
+  modules = {
+    ["fallo"] = "lua/fallo/init.lua",
   },
+  -- install = {
+  --   lua = {
+  --     fallo = "lua/fallo",
+  --   },
+  -- },
 }
 
 test = {
