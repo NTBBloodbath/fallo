@@ -17,5 +17,10 @@ TBD
 >
 > Before commit your changes, make sure to format the code by running `stylua {lua,test}/**/*.lua`, and run `busted` to make sure all tests works correctly.
 
+## TODO
+- [ ] Coroutine-based async error handling
+- [ ] Expose configuration options (e.g. enable/disable stack traces)
+- [ ] Improve structured errors through metatables
+
 ## License
 Fallo is licensed under [LGPL-3.0+](./LICENSE).
