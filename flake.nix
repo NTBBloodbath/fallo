@@ -20,6 +20,7 @@
           lua5_1
           lua-language-server
           lua51Packages.busted
+          lua51Packages.luacov
           lua51Packages.luacheck
         ];
       };
