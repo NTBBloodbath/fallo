@@ -22,7 +22,7 @@ describe("Result class", function()
          local function add(a, b) return a + b end
          local res = Result.wrap(add, 10, 5)
          assert.is_true(res:is_ok())
-         assert.are.same({ 15 }, res:unwrap())
+         assert.are.same(15, res:unwrap())
       end)
 
       it("wraps failing calls", function()
@@ -174,8 +174,8 @@ describe("Result class", function()
 
       it("converts Ok table to multiple returns", function()
          local res = Result.ok({ 1, 2, 3 })
-         local a, b, c = res:to_lua_error()
-         assert.are.same({ 1, 2, 3 }, { a, b, c })
+         local err_res = res:to_lua_error()
+         assert.are.same({ 1, 2, 3 }, err_res)
       end)
 
       it("converts Err to Lua error", function()

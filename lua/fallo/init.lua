@@ -184,10 +184,9 @@ end
 
 ---Convert to Lua's error system
 ---Returns values if Ok, throws error if Err
----@return any ... Unpacked values if Ok, formatted error if Err
+---@return any ... Result values if Ok, formatted error if Err
 function Result:to_lua_error()
    if self.ok then
-      if type(self.value) == "table" then return unpack(self.value) end
       return self.value
    else
       error(Result.format_error(self.error), 0)
@@ -221,10 +220,9 @@ end
 ---Convert to Lua's xpcall system
 ---Returns values if Ok, throws formatted error if Err
 ---@param message_handler function Custom message handler
----@return any ... Unpacked values if Ok
+---@return any ... Result values if Ok
 function Result:to_xpcall(message_handler)
    if self.ok then
-      if type(self.value) == "table" then return unpack(self.value) end
       return self.value
    else
       error(message_handler(self.error), 0)
@@ -242,10 +240,9 @@ end
 
 ---Convert to Lua's assert system
 ---Returns values if Ok, throws error if Err using `assert()`
----@return any ... Unpacked values if Ok
+---@return any ... Result values if Ok
 function Result:to_assert()
    if self.ok then
-      if type(self.value) == "table" then return unpack(self.value) end
       return self.value
    else
       return false, Result.format_error(self.error)
