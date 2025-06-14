@@ -1,4 +1,4 @@
----@module 'tide'
+---@module 'fallo'
 ---Rust-like Result type for structured error handling
 
 ---@class Result
