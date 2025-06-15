@@ -301,7 +301,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:297: inner error", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:296: inner error", res.error.message)
       end)
 
       it("propagates structured errors", function()
@@ -322,7 +322,7 @@ describe("Result class", function()
          local res = Result.try(function() error("raw Lua error") end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:323: raw Lua error", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:322: raw Lua error", res.error.message)
       end)
 
       it("works with complex workflows", function()
@@ -342,7 +342,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:345: intentional failure", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:339: intentional failure", res.error.message)
       end)
    end)
 end)
