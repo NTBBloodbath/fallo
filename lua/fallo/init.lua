@@ -249,6 +249,34 @@ function Result:to_assert()
    end
 end
 
+---Create a protected execution context for error propagation
+---@generic T
+---@param fn fun(): T Function to execute in protected mode
+---@return Result<T> Result of the execution
+function Result.try(fn)
+   local co = coroutine.create(fn)
+
+   local function step(...)
+      local returns = { coroutine.resume(co, ...) }
+      local success = table.remove(returns, 1)
+
+      if not success then return Result.err(Result.structure_error(returns[1])) end
+
+      if coroutine.status(co) == "dead" then return Result.ok(returns[1] or returns) end
+
+      -- Handle results from the function
+      local result = returns[1]
+      if type(result) == "table" and getmetatable(result) == result_mt then
+         if result:is_err() then return result end
+         return step(result:unwrap())
+      end
+
+      return step(unpack(returns))
+   end
+
+   return step()
+end
+
 ---Create structured error with stack trace
 ---@param data table Error data
 ---@return Result<any, table> Error result

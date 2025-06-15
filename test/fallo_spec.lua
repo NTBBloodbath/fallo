@@ -268,4 +268,81 @@ describe("Result class", function()
          assert.are.equal("problem", problem)
       end)
    end)
+
+   describe("Error Propagation #propagation", function()
+      it("automatically propagates errors in try blocks", function()
+         local function nested_ops()
+            local a = Result.ok(10):unwrap()
+            local b = Result.err("failed"):unwrap() --> Should propagate
+            return a + b
+         end
+
+         local res = Result.try(nested_ops)
+         assert.is_true(res:is_err())
+         assert.are.equal("test/fallo_spec.lua:276: failed", res.error.message)
+      end)
+
+      it("continues execution after successful unwraps", function()
+         local res = Result.try(function()
+            local a = Result.ok(5):unwrap()
+            local b = Result.ok(10):unwrap()
+            return a + b
+         end)
+
+         assert.are.equal(15, res:unwrap())
+      end)
+
+      it("handles nested try blocks", function()
+         local function inner() Result.err("inner error"):unwrap() end
+
+         local res = Result.try(function()
+            inner()
+            return "success"
+         end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("test/fallo_spec.lua:297: inner error", res.error.message)
+      end)
+
+      it("propagates structured errors", function()
+         local res = Result.try(
+            function()
+               return Result.structured_error({
+                  code = 500,
+                  message = "Server Error",
+               }):unwrap()
+            end
+         )
+
+         assert.is_true(res:is_err())
+         assert.are.equal(500, res.error.data.code)
+      end)
+
+      it("handles regular Lua errors", function()
+         local res = Result.try(function() error("raw Lua error") end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("test/fallo_spec.lua:323: raw Lua error", res.error.message)
+      end)
+
+      it("works with complex workflows", function()
+         local function get_value() return Result.ok(42) end
+
+         local function might_fail(should_fail)
+            if should_fail then return Result.err("intentional failure") end
+            return Result.ok(100)
+         end
+
+         local res = Result.try(function()
+            local a = get_value():unwrap()
+            local b = might_fail(false):unwrap()
+            local c = might_fail(true):unwrap() --> Should stop here
+
+            return a + b + c
+         end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("test/fallo_spec.lua:345: intentional failure", res.error.message)
+      end)
+   end)
 end)
