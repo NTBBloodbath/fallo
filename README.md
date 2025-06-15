@@ -2,6 +2,7 @@
 
 # Fallo
 
+![Lua Version](https://img.shields.io/badge/Lua-5.1+-blue?style=for-the-badge&logo=lua)
 [![LuaRocks](https://img.shields.io/luarocks/v/NTBBloodbath/fallo?style=for-the-badge&logo=lua)](https://luarocks.org/modules/ntbbloodbath/fallo)
 ![GitHub License](https://img.shields.io/github/license/NTBBloodbath/fallo?style=for-the-badge&logo=gitbook)
 
