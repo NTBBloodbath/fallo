@@ -137,12 +137,21 @@ function Result:map(fn)
    return self
 end
 
----Map error vlaue to a new error
+---Map error value to a new error
 ---@generic E, F
 ---@param fn fun(error: E): F Mapping function
 ---@return Result New result
 function Result:map_err(fn)
-   if not self.ok then return Result.err(fn(self.error)) end
+   if not self.ok then
+     local new_err = fn(self.error)
+
+     -- Preserve structured error metadata
+     if type(self.error) == "table" and type(new_err) == "table" then
+        new_err.stack = new_err.stack or self.error.stack
+        new_err.data = new_err.data or self.error.data
+     end
+     return Result.err(new_err)
+   end
    return self
 end
 
@@ -267,7 +276,16 @@ function Result.try(fn)
       -- Handle results from the function
       local result = returns[1]
       if type(result) == "table" and getmetatable(result) == result_mt then
-         if result:is_err() then return result end
+         if result:is_err() then
+            -- Preserve structured error metadata
+            local err = result.error
+            if type(err) == "table" then
+               -- Append current stack to existing trace
+               local current_trace = debug.traceback("", 2)
+               err.stack = err.stack and (err.stack .. "\n" .. current_trace) or current_trace
+            end
+            return result
+         end
          return step(result:unwrap())
       end
 
