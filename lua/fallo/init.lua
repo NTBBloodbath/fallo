@@ -258,6 +258,28 @@ function Result:to_assert()
    end
 end
 
+---Perform side effect on success value without modification
+---@generic T
+---@param fn fun(value: T) Inspection function
+---@return Result Same result
+function Result:inspect(fn)
+    if self.ok then
+        fn(self.value)
+    end
+    return self
+end
+
+---Perform side effect on error value without modification
+---@generic E
+---@param fn fun(error: E) Inspection function
+---@return Result Same result
+function Result:inspect_err(fn)
+    if not self.ok then
+        fn(self.error)
+    end
+    return self
+end
+
 ---Create a protected execution context for error propagation
 ---@generic T
 ---@param fn fun(): T Function to execute in protected mode
