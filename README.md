@@ -50,7 +50,7 @@ local success = Result.ok(42)
 local failure = Result.err("File not found")
 
 -- Structured error
-local structured = Result.structured_error({
+local structured = Result.err({
   code = 404,
   message = "User not found",
   context = {user_id = "abc123"}
@@ -119,15 +119,34 @@ end
 > Check out the [examples](./examples) directory for usage examples.
 
 ## Core API
+### Configuration
+| Option                 | Description                        | Default |
+| ---------------------- | ---------------------------------- | ------- |
+| `traceback`            | Whether to add error stack traces  | `true`  |
+
+<details>
+  <summary>Example</summary>
+
+```lua
+local Result = require("fallo")
+
+Result.config = {
+  traceback = true,
+}
+```
+
+</details>
+
 ### Result Creation
 
-| Method                 | Description                 | Example                                         |
-| ---------------------- | --------------------------- | ----------------------------------------------- |
-| `Result.ok(value)`     | Creates successful result   | `Result.ok(42)`                                 |
-| `Result.err(error)`    | Creates error result        |  `Result.err("failed")`                         |
-| `Result.wrap(fn, ...)` | Wraps function call         | `Result.wrap(os.remove, "temp.txt")`            |
-| `Result.wrap_fn(fn)`   | Creates safe function       | `safe_remove = Result.wrap_fn(remove_tmpfiles)` |
-| `Result.try(fn)`       | Protected execution context | `Result.try(may_fail)`                          |
+| Method                 | Description                   | Example                                         |
+| ---------------------- | ----------------------------- | ----------------------------------------------- |
+| `Result.ok(value)`     | Creates successful result     | `Result.ok(42)`                                 |
+| `Result.err(error)`    | Creates error result          | `Result.err("failed")`, `Result.err({ oh = "no" })` |
+| `Result.wrap(fn, ...)` | Wraps function call           | `Result.wrap(os.remove, "temp.txt")`            |
+| `Result.wrap_fn(fn)`   | Creates safe function         | `safe_remove = Result.wrap_fn(remove_tmpfiles)` |
+| `Result.try(fn)`       | Protected execution context   | `Result.try(may_fail)`                          |
+| `:with_traceback()`    | Add error traceback to result | `res:with_traceback()`                          |
 
 ### Result Handling
 | Method                 | Description                       | Example                                     |
@@ -164,7 +183,7 @@ end
 ## TODO
 - [x] Allow error propagation
 - [ ] Coroutine-based async error handling
-- [ ] Expose configuration options (e.g. enable/disable stack traces)
+- [x] Expose configuration options (e.g. enable/disable stack traces)
 - [ ] Improve structured errors through metatables
 
 ## License
