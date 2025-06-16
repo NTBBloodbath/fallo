@@ -7,6 +7,12 @@
 ---@field error any|nil Contained error when ok=false
 local Result = {}
 
+---@class ResultConfig
+---@field traceback boolean Whether to add tracebacks to errors, enabled by default
+Result.config = {
+   traceback = true,
+}
+
 ---Format an error value to a string for Lua errors
 ---@param err any The error value
 ---@return string
@@ -18,14 +24,20 @@ end
 
 ---Convert a Lua error to a structured error
 ---@param err any The error value
+---@param level? number The traceback start level (default: 3)
 ---@return table Structured error
 ---@private
-function Result.structure_error(err)
+function Result.structure_error(err, level)
    if type(err) == "table" then return err end
-   return {
+
+   local structured_err = {
       message = tostring(err),
-      stack = debug.traceback("", 3),
    }
+
+   if Result.config.traceback then
+      structured_err.stack = debug.traceback("", level or 3)
+   end
+   return structured_err
 end
 
 ---Metatable for Result objects
@@ -62,10 +74,10 @@ function Result.wrap(fn, ...)
          return Result.err(err)
       end
       -- capture traceback stack for new errors
-      return Result.structured_error({
-         message = err,
-         stack = debug.traceback("", 2),
-      })
+      if Result.config.traceback then
+         return Result.err(err):with_traceback()
+      end
+      return Result.err(err)
    end
 
    return Result.ok(#returns > 1 and returns or returns[1])
@@ -143,14 +155,13 @@ end
 ---@return Result New result
 function Result:map_err(fn)
    if not self.ok then
-     local new_err = fn(self.error)
+      local new_err = fn(self.error)
 
-     -- Preserve structured error metadata
-     if type(self.error) == "table" and type(new_err) == "table" then
-        new_err.stack = new_err.stack or self.error.stack
-        new_err.data = new_err.data or self.error.data
-     end
-     return Result.err(new_err)
+      -- Preserve structured error metadata
+      if type(self.error) == "table" and type(new_err) == "table" then
+         new_err.stack = new_err.stack or self.error.stack
+      end
+      return Result.err(new_err)
    end
    return self
 end
@@ -263,10 +274,8 @@ end
 ---@param fn fun(value: T) Inspection function
 ---@return Result Same result
 function Result:inspect(fn)
-    if self.ok then
-        fn(self.value)
-    end
-    return self
+   if self.ok then fn(self.value) end
+   return self
 end
 
 ---Perform side effect on error value without modification
@@ -274,10 +283,23 @@ end
 ---@param fn fun(error: E) Inspection function
 ---@return Result Same result
 function Result:inspect_err(fn)
-    if not self.ok then
-        fn(self.error)
-    end
-    return self
+   if not self.ok then fn(self.error) end
+   return self
+end
+
+---Add stack trace to error (if enabled in config)
+---@return Result self (for chaining)
+function Result:with_traceback()
+   if not self.ok and Result.config.traceback then
+      local err = self.error
+
+      -- Ensure error is structured
+      if type(err) ~= "table" then self.error = Result.structure_error(err, 2) end
+
+      -- Add traceback if not already present
+      if type(err) == "table" and not err.stack then err.stack = debug.traceback("", 2) end
+   end
+   return self
 end
 
 ---Create a protected execution context for error propagation
@@ -291,7 +313,12 @@ function Result.try(fn)
       local returns = { coroutine.resume(co, ...) }
       local success = table.remove(returns, 1)
 
-      if not success then return Result.err(Result.structure_error(returns[1])) end
+      if not success then
+         if Result.config.traceback then
+            return Result.err(returns[1]):with_traceback()
+         end
+         return Result.err(returns[1])
+      end
 
       if coroutine.status(co) == "dead" then return Result.ok(returns[1] or returns) end
 
@@ -301,10 +328,10 @@ function Result.try(fn)
          if result:is_err() then
             -- Preserve structured error metadata
             local err = result.error
-            if type(err) == "table" then
+            if type(err) == "table" and err.stack then
                -- Append current stack to existing trace
                local current_trace = debug.traceback("", 2)
-               err.stack = err.stack and (err.stack .. "\n" .. current_trace) or current_trace
+               result.error.stack = err.stack and (err.stack .. "\n" .. current_trace) or current_trace
             end
             return result
          end
@@ -315,18 +342,6 @@ function Result.try(fn)
    end
 
    return step()
-end
-
----Create structured error with stack trace
----@param data table Error data
----@return Result<any, table> Error result
-function Result.structured_error(data)
-   local err = {
-      message = data.message or "Error",
-      data = data,
-      stack = debug.traceback("", 2),
-   }
-   return Result.err(err)
 end
 
 return Result

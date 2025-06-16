@@ -5,11 +5,11 @@ local Result = require("fallo")
 ---@return Result<number, table> account balance
 local function get_balance(user_id)
    if user_id == "invalid" then
-      return Result.structured_error({
+      return Result.err({
          code = 404,
          message = "User not found",
          context = {user_id = user_id}
-      })
+      }):with_traceback()
    end
    return Result.ok(1000)
 end
@@ -21,7 +21,7 @@ end
 local function transfer_funds(from, to, amount)
    return Result.try(function()
       local from_balance = get_balance(from):unwrap()
-      local to_balance = get_balance(to):unwrap()
+      -- local to_balance = get_balance(to):unwrap()
 
       if from_balance < amount then
          error({
@@ -45,16 +45,12 @@ transfer_funds("user1", "user2", 200)
 print("\nUser not found:")
 transfer_funds("invalid", "user2", 200)
 :map_err(function(e)
-   return {
-      code = e.code,
-      message = "Account error: " .. e.message,
-      context = e.context,
-      stack = e.stack
-   }
+  e.message = "Account error: " .. e.message
+  return e
 end)
 :inspect_err(function(e)
-   print(string.format("[ERROR %d] %s", e.data.code, e.data.message))
-   print("Context user:", e.data.context.user_id)
+   print(string.format("[ERROR %d] %s", e.code, e.message))
+   print("Context user:", e.context.user_id)
    print("Stack trace:")
    print(e.stack:sub(1, 200)) -- Print first 200 chars of stack
 end)
@@ -77,7 +73,7 @@ res:inspect_err(function(e)
    print(string.format("Code: %d", e.code))
    print("Message:", e.message)
    print("Requested amount:", e.transaction.amount)
-   print("Available:", e.original.data.available)
+   print("Available:", e.original.available)
 end)
 
 -- Chained operations with error recovery

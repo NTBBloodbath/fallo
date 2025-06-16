@@ -21,8 +21,7 @@ fetch_data(true)
     print("Fallback triggered:", err.message)
     return fetch_data(false)
   end)
-  :map(function(user)
-    ---@diagnostic disable-next-line missing-return
+  :inspect(function(user)
     print("Recovered user:", user.name)
   end)
 
@@ -39,6 +38,6 @@ fetch_data(true)
       error("Unrecoverable error")
     end
   })
-  :map(function(user)
+  :inspect(function(user)
     print("Fallback user:", user.name)
   end)

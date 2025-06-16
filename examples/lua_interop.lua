@@ -25,7 +25,7 @@ local res1 = Result.from_assert(legacy_api(true))
 print("Legacy success:", res1:unwrap().data) --> 42
 
 local res2 = Result.from_assert(legacy_api(false))
-print("Legacy error:", res2.error) --> something went wrong
+print("Legacy error:", res2.error.message) --> something went wrong
 
 -- Convert to legacy API
 local function wrapper()
@@ -37,8 +37,7 @@ print("Wrapped data:", data.data) --> 42
 
 -- pcall integration
 local res3 = Result.pcall(modern_api, false)
-res3:map_err(function(err)
-  ---@diagnostic disable-next-line missing-return
+res3:inspect_err(function(err)
   print("Structured error code:", err.code) --> 500
 end)
 

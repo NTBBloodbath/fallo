@@ -90,19 +90,19 @@ describe("Result class", function()
 
    describe("Structured errors #structured", function()
       it("creates structured errors", function()
-         local res = Result.structured_error({
+         local res = Result.err({
             code = 404,
             message = "Not found",
-         })
+         }):with_traceback()
 
          assert.is_true(res:is_err())
          assert.are.equal("Not found", res.error.message)
-         assert.are.equal(404, res.error.data.code)
+         assert.are.equal(404, res.error.code)
          assert.is_string(res.error.stack)
       end)
 
       it("preserves structured errors in unwrap", function()
-         local res = Result.structured_error({ message = "test" })
+         local res = Result.err({ message = "test" }):with_traceback()
          local status, err = pcall(res.unwrap, res)
          assert.is_false(status)
          assert.are.equal("test", err.message)
@@ -130,7 +130,7 @@ describe("Result class", function()
       end)
 
       it("handles structured errors", function()
-         local res = Result.structured_error({
+         local res = Result.err({
             code = 404,
             message = "Not found",
          })
@@ -141,7 +141,7 @@ describe("Result class", function()
                assert.are.equal("Not found", e.message)
                -- I don't recall having to return a value from this but whatever
                ---@diagnostic disable-next-line missing-return
-               assert.are.equal(404, e.data.code)
+               assert.are.equal(404, e.code)
             end,
          })
       end)
@@ -186,7 +186,7 @@ describe("Result class", function()
       end)
 
       it("converts structured errors in to_lua_error", function()
-         local res = Result.structured_error({ message = "custom error" })
+         local res = Result.err({ message = "custom error" })
          local status, err = pcall(res.to_lua_error, res)
          assert.is_false(status)
          assert.are.equal("custom error", err)
@@ -235,7 +235,7 @@ describe("Result class", function()
          local handler = function(err) return "HANDLED: " .. tostring(err.message) end
 
          local ok = Result.ok("success")
-         local err = Result.structured_error({ message = "error" })
+         local err = Result.err({ message = "error" })
 
          assert.are.equal("success", ok:to_xpcall(handler))
          local status, msg = pcall(err.to_xpcall, err, handler)
@@ -307,7 +307,7 @@ describe("Result class", function()
       it("propagates structured errors", function()
          local res = Result.try(
             function()
-               return Result.structured_error({
+               return Result.err({
                   code = 500,
                   message = "Server Error",
                }):unwrap()
@@ -315,41 +315,37 @@ describe("Result class", function()
          )
 
          assert.is_true(res:is_err())
-         assert.are.equal(500, res.error.data.code)
+         assert.are.equal(500, res.error.code)
       end)
 
       it("preserves structured errors through map_err", function()
-         local original = Result.structured_error({
+         local original = Result.err({
             code = 404,
             message = "Not found",
-            context = {resource = "user"}
-         })
+            context = { resource = "user" },
+         }):with_traceback()
 
-         local transformed = original:map_err(function(err)
-            return {
-               code = err.code,
-               message = "Modified: " .. err.message,
-               extra = "new field"
-            }
-         end)
+         local transformed = original
+            :map_err(function(err)
+               err.message = "Modified: " .. err.message
+               err.extra = "new field"
+               return err
+            end)
+            :with_traceback()
 
          assert.is_true(transformed:is_err())
          local err = transformed.error
-         assert.are.equal(404, err.data.code)
+         assert.are.equal(404, err.code)
          assert.are.equal("Modified: Not found", err.message)
          assert.are.equal("new field", err.extra)
-         assert.are.equal("user", err.data.context.resource)
+         assert.are.equal("user", err.context.resource)
          assert.is_string(err.stack)
       end)
 
       it("preserves stack traces through propagation", function()
-         local function inner()
-            Result.err("original error"):unwrap()
-         end
+         local function inner() Result.err("original error"):unwrap() end
 
-         local function outer()
-            inner()
-         end
+         local function outer() inner() end
 
          local res = Result.try(outer)
          assert.is_true(res:is_err())
@@ -358,27 +354,28 @@ describe("Result class", function()
 
       it("preserves error structure through multiple transformations", function()
          local res = Result.try(function()
-            Result.structured_error({
-               code = 400,
-               message = "Bad request"
-            })
-            :map_err(function(e)
-               return {
-                  code = e.code,
-                  message = "Validation: " .. e.message,
-                  stage = "input"
-               }
-            end)
-            :inspect_err(function(e)
-               e.checked = true
-            end)
-            ---@diagnostic disable-next-line missing-return
-            :unwrap()
+            Result
+               .err({
+                  code = 400,
+                  message = "Bad request",
+               })
+               :map_err(
+                  function(e)
+                     return {
+                        code = e.code,
+                        message = "Validation: " .. e.message,
+                        stage = "input",
+                     }
+                  end
+               )
+               :inspect_err(function(e) e.checked = true end)
+               ---@diagnostic disable-next-line missing-return
+               :unwrap()
          end)
 
          assert.is_true(res:is_err())
          local err = res.error
-         assert.are.equal(400, err.data.code)
+         assert.are.equal(400, err.code)
          assert.are.equal("Validation: Bad request", err.message)
          assert.are.equal("input", err.stage)
          assert.is_true(err.checked)
@@ -389,7 +386,7 @@ describe("Result class", function()
          local res = Result.try(function() error("raw Lua error") end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:389: raw Lua error", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:386: raw Lua error", res.error.message)
       end)
 
       it("works with complex workflows", function()
@@ -409,7 +406,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:406: intentional failure", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:403: intentional failure", res.error.message)
       end)
    end)
 end)
