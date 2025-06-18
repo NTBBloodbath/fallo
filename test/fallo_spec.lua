@@ -269,7 +269,7 @@ describe("Result class", function()
       end)
    end)
 
-   describe("Error Propagation #propagation", function()
+   describe("Automatic Error Propagation #auto-propagation", function()
       it("automatically propagates errors in try blocks", function()
          local function nested_ops()
             local a = Result.ok(10):unwrap()
@@ -407,6 +407,47 @@ describe("Result class", function()
 
          assert.is_true(res:is_err())
          assert.are.equal("test/fallo_spec.lua:403: intentional failure", res.error.message)
+      end)
+   end)
+
+   describe("Explicit Error Propagation #explicit-propagation", function()
+      it("propagates errors from Result.err", function()
+         local function test()
+            Result.err("test error"):try()
+         end
+
+         local ok, err = pcall(test)
+         assert.is_false(ok)
+         assert.are.equal("test error", err)
+      end)
+
+      it("returns values from Result.ok", function()
+         local value = Result.ok(42):try()
+         assert.are.equal(42, value)
+      end)
+
+      it("works with nested propagations", function()
+         local function inner()
+            Result.err("inner error"):try()
+         end
+
+         local function outer()
+            inner()
+         end
+
+         local ok, err = pcall(outer)
+         assert.is_false(ok)
+         assert.are.equal("inner error", err)
+      end)
+
+      it("combines with safe blocks", function()
+         local res = Result.safe(function()
+            ---@diagnostic disable-next-line missing-return
+            Result.err("propagated in try"):try()
+         end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("propagated in try", res.error.message)
       end)
    end)
 end)

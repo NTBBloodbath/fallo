@@ -155,6 +155,7 @@ Result.config = {
 | `:unwrap_or(default)`  | Returns value or default          | `value = res:unwrap_or(0)`                  |
 | `:unwrap_or_else(fn)`  | Returns value or computes default | `value = res:unwrap_or_else(error_handler)` |
 | `:expect(message)`     | Unwraps with custom error message | `res:expect("Should have value")`           |
+| `:try()`               | Propagates the error if Result is not Ok | `res:try()`           |
 | `:is_ok()`             | Checks if result is successful    | `if res:is_ok() then ... end`               |
 | `:is_err()`            | Checks if result is error         | `if res:is_err() then ... end`              |
 

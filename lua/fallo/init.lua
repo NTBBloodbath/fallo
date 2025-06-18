@@ -302,6 +302,16 @@ function Result:with_traceback()
    return self
 end
 
+---Propagate the error if Result is Err, otherwise return value
+---@return any value if Ok
+function Result:try()
+  if self.ok then
+    return self.value
+  end
+
+  error(Result.format_error(self.error), 0)
+end
+
 ---Create a protected execution context for error propagation
 ---@generic T
 ---@param fn fun(): T Function to execute in protected mode
