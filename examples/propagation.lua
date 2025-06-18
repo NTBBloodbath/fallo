@@ -19,7 +19,7 @@ end
 ---@param amount number
 ---@return Result<boolean, table>
 local function transfer_funds(from, to, amount)
-   return Result.try(function()
+   return Result.safe(function()
       local from_balance = get_balance(from):unwrap()
       -- local to_balance = get_balance(to):unwrap()
 

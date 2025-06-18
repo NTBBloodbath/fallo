@@ -277,13 +277,13 @@ describe("Result class", function()
             return a + b
          end
 
-         local res = Result.try(nested_ops)
+         local res = Result.safe(nested_ops)
          assert.is_true(res:is_err())
          assert.are.equal("test/fallo_spec.lua:276: failed", res.error.message)
       end)
 
       it("continues execution after successful unwraps", function()
-         local res = Result.try(function()
+         local res = Result.safe(function()
             local a = Result.ok(5):unwrap()
             local b = Result.ok(10):unwrap()
             return a + b
@@ -295,7 +295,7 @@ describe("Result class", function()
       it("handles nested try blocks", function()
          local function inner() Result.err("inner error"):unwrap() end
 
-         local res = Result.try(function()
+         local res = Result.safe(function()
             inner()
             return "success"
          end)
@@ -305,7 +305,7 @@ describe("Result class", function()
       end)
 
       it("propagates structured errors", function()
-         local res = Result.try(
+         local res = Result.safe(
             function()
                return Result.err({
                   code = 500,
@@ -347,13 +347,13 @@ describe("Result class", function()
 
          local function outer() inner() end
 
-         local res = Result.try(outer)
+         local res = Result.safe(outer)
          assert.is_true(res:is_err())
          assert.is_string(res.error.stack)
       end)
 
       it("preserves error structure through multiple transformations", function()
-         local res = Result.try(function()
+         local res = Result.safe(function()
             Result
                .err({
                   code = 400,
@@ -383,7 +383,7 @@ describe("Result class", function()
       end)
 
       it("handles regular Lua errors", function()
-         local res = Result.try(function() error("raw Lua error") end)
+         local res = Result.safe(function() error("raw Lua error") end)
 
          assert.is_true(res:is_err())
          assert.are.equal("test/fallo_spec.lua:386: raw Lua error", res.error.message)
@@ -397,7 +397,7 @@ describe("Result class", function()
             return Result.ok(100)
          end
 
-         local res = Result.try(function()
+         local res = Result.safe(function()
             local a = get_value():unwrap()
             local b = might_fail(false):unwrap()
             local c = might_fail(true):unwrap() --> Should stop here

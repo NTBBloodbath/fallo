@@ -306,7 +306,7 @@ end
 ---@generic T
 ---@param fn fun(): T Function to execute in protected mode
 ---@return Result<T> Result of the execution
-function Result.try(fn)
+function Result.safe(fn)
    local co = coroutine.create(fn)
 
    local function step(...)

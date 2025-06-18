@@ -17,7 +17,7 @@ error system.
 - **Structured errors** with metadata and stack traces.
 - **Method chaining** for complex workflows.
 - **Seamless interoperability** with Lua's error system.
-- **Automatic error propagation** with `Result.try`.
+- **Automatic error propagation** with `Result.safe`.
 - **Side effect handlers** for logging and metrics.
 - **LuaCATS annotations** for safe typing editor support.
 - **Zero dependencies** self-contained single-file library.
@@ -88,7 +88,7 @@ Result.ok(5)
 
 ### Automatic Propagation
 ```lua
-local config = Result.try(function()
+local config = Result.safe(function()
   local raw = read_file("config.json"):unwrap()
   return parse_json(raw):unwrap()
 end)
@@ -145,7 +145,7 @@ Result.config = {
 | `Result.err(error)`    | Creates error result          | `Result.err("failed")`, `Result.err({ oh = "no" })` |
 | `Result.wrap(fn, ...)` | Wraps function call           | `Result.wrap(os.remove, "temp.txt")`            |
 | `Result.wrap_fn(fn)`   | Creates safe function         | `safe_remove = Result.wrap_fn(remove_tmpfiles)` |
-| `Result.try(fn)`       | Protected execution context   | `Result.try(may_fail)`                          |
+| `Result.safe(fn)`      | Protected execution context   | `Result.safe(may_fail)`                         |
 | `:with_traceback()`    | Add error traceback to result | `res:with_traceback()`                          |
 
 ### Result Handling
