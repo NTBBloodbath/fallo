@@ -9,18 +9,19 @@ local Result = {}
 
 ---@class ResultConfig
 ---@field traceback boolean Whether to add tracebacks to errors, enabled by default
+---@field json table|nil JSON module to be used, defaults to `lua-cjson`. Set it to `nil` to disable JSON encoding
 Result.config = {
    traceback = true,
+   json = nil,
 }
 
----Format an error value to a string for Lua errors
----@param err any The error value
----@return string
----@private
-function Result.format_error(err)
-   if type(err) == "table" and err.message then return err.message end
-   return tostring(err)
-end
+-- Gracefully set the default JSON library to be used, based off the default one provided in the Luarocks rockspec.
+--
+-- This is done this way to keep backwards compatibility with previous versions or whenever someone wants to directly
+-- embed the library into their projects and don't really need the JSON serialization implementation, and thus avoiding
+-- errors on runtime or having to directly modify the library source code in order to get rid of it.
+local ok_cjson, cjson = pcall(require, "cjson.safe")
+if ok_cjson then Result.config.json = cjson end
 
 ---Convert a Lua error to a structured error
 ---@param err any The error value
@@ -34,10 +35,39 @@ function Result.structure_error(err, level)
       message = tostring(err),
    }
 
-   if Result.config.traceback then
-      structured_err.stack = debug.traceback("", level or 3)
-   end
+   if Result.config.traceback then structured_err.stack = debug.traceback("", level or 3) end
    return structured_err
+end
+
+---Serialize a structured error into a JSON string if JSON is enabled
+---Otherwise, returns the error as a string
+---@param err table Structured error
+function Result.serialize(err)
+   if type(err) == "string" then return err end
+
+   if type(err) == "table" then
+      -- Try JSON serialization if available
+      if Result.config.json then
+         local ok, json = pcall(Result.config.json.encode, err)
+         if ok then return json end
+      end
+
+      -- Fallback to simple table serialization
+      if err.message then return err.message end
+   end
+   return tostring(err)
+end
+
+---Deserialize an error string, using JSON deserialization if JSON is enabled
+---Otherwise, returns the error as it
+---@param err string Error string
+function Result.deserialize(err)
+   if Result.config.json then
+      local ok, data = pcall(Result.config.json.decode, err)
+      if ok and type(data) == "table" then return data end
+   end
+
+   return err
 end
 
 ---Metatable for Result objects
@@ -69,14 +99,17 @@ function Result.wrap(fn, ...)
 
    if not success then
       local err = returns[1]
+      -- Attempt to deserialize string errors
+      if type(err) == "string" then
+         ---@diagnostic disable-next-line
+         err = Result.deserialize(err)
+      end
       if type(err) == "table" then
          -- Preserve existing structured errors
          return Result.err(err)
       end
       -- capture traceback stack for new errors
-      if Result.config.traceback then
-         return Result.err(err):with_traceback()
-      end
+      if Result.config.traceback then return Result.err(err):with_traceback() end
       return Result.err(err)
    end
 
@@ -125,7 +158,7 @@ function Result:expect(message)
    if self.ok then
       return self.value
    else
-      error(string.format("%s: %s", message, tostring(self.error)), 2)
+      error(string.format("%s: %s", message, Result.serialize(self.error)), 2)
    end
 end
 
@@ -209,7 +242,7 @@ function Result:to_lua_error()
    if self.ok then
       return self.value
    else
-      error(Result.format_error(self.error), 0)
+      error(Result.serialize(self.error), 0)
    end
 end
 
@@ -218,7 +251,11 @@ end
 ---@param ... any Return values from pcall
 ---@return Result
 function Result.from_pcall(success, ...)
-   if not success then return Result.err(Result.structure_error((...))) end
+   if not success then
+      local err = ...
+      if type(err) == "string" then err = Result.deserialize(err) end
+      return Result.err(Result.structure_error(err))
+   end
    return Result.ok({ ... })
 end
 
@@ -233,7 +270,10 @@ function Result.pcall(fn, ...) return Result.from_pcall(pcall(fn, ...)) end
 ---@param result any Return value from xpcall
 ---@return Result
 function Result.from_xpcall(success, result)
-   if not success then return Result.err(Result.structure_error(result)) end
+   if not success then
+      if type(result) == "string" then result = Result.deserialize(result) end
+      return Result.err(Result.structure_error(result))
+   end
    return Result.ok(result)
 end
 
@@ -254,7 +294,11 @@ end
 ---@param ... any Return values from protected call
 ---@return Result
 function Result.from_assert(success, ...)
-   if not success then return Result.err(Result.structure_error((...))) end
+   if not success then
+      local err = ...
+      if type(err) == "string" then err = Result.deserialize(err) end
+      return Result.err(Result.structure_error(err))
+   end
    return Result.ok(...)
 end
 
@@ -265,7 +309,7 @@ function Result:to_assert()
    if self.ok then
       return self.value
    else
-      return false, Result.format_error(self.error)
+      return false, Result.serialize(self.error)
    end
 end
 
@@ -305,11 +349,9 @@ end
 ---Propagate the error if Result is Err, otherwise return value
 ---@return any value if Ok
 function Result:try()
-  if self.ok then
-    return self.value
-  end
+   if self.ok then return self.value end
 
-  error(Result.format_error(self.error), 0)
+   error(Result.serialize(self.error), 0)
 end
 
 ---Create a protected execution context for error propagation
@@ -324,10 +366,14 @@ function Result.safe(fn)
       local success = table.remove(returns, 1)
 
       if not success then
-         if Result.config.traceback then
-            return Result.err(returns[1]):with_traceback()
+         local err = returns[1]
+         if type(err) == "string" then
+            ---@diagnostic disable-next-line
+            err = Result.deserialize(err)
          end
-         return Result.err(returns[1])
+
+         if Result.config.traceback then return Result.err(err):with_traceback() end
+         return Result.err(err)
       end
 
       if coroutine.status(co) == "dead" then return Result.ok(returns[1] or returns) end

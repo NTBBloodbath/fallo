@@ -189,7 +189,7 @@ describe("Result class", function()
          local res = Result.err({ message = "custom error" })
          local status, err = pcall(res.to_lua_error, res)
          assert.is_false(status)
-         assert.are.equal("custom error", err)
+         assert.are.equal('{"message":"custom error"}', err)
       end)
 
       it("creates from pcall success", function()
@@ -412,9 +412,7 @@ describe("Result class", function()
 
    describe("Explicit Error Propagation #explicit-propagation", function()
       it("propagates errors from Result.err", function()
-         local function test()
-            Result.err("test error"):try()
-         end
+         local function test() Result.err("test error"):try() end
 
          local ok, err = pcall(test)
          assert.is_false(ok)
@@ -427,13 +425,9 @@ describe("Result class", function()
       end)
 
       it("works with nested propagations", function()
-         local function inner()
-            Result.err("inner error"):try()
-         end
+         local function inner() Result.err("inner error"):try() end
 
-         local function outer()
-            inner()
-         end
+         local function outer() inner() end
 
          local ok, err = pcall(outer)
          assert.is_false(ok)
@@ -448,6 +442,45 @@ describe("Result class", function()
 
          assert.is_true(res:is_err())
          assert.are.equal("propagated in try", res.error.message)
+      end)
+   end)
+
+   describe("Error Serialization", function()
+      it("serializes structured error without JSON", function()
+         -- Save existing JSON implementation to restore it later
+         local json = Result.config.json
+         Result.config.json = nil
+
+         local err = { code = 400, message = "Bad request" }
+         -- This will serialize only the structured error message as intended
+         local serialized = Result.serialize(err)
+         assert.are.equal("Bad request", serialized)
+
+         Result.config.json = json
+      end)
+
+      it("serializes tables with JSON", function()
+         local err = { code = 500, message = "Internal Server Error" }
+         local serialized = Result.serialize(err)
+         assert.are.equal('{"message":"Internal Server Error","code":500}', serialized)
+      end)
+
+      it("deserializes JSON strings", function()
+         local json_str = '{"message":"Yabbadabbadoo"}'
+         local deserialized = Result.deserialize(json_str)
+         assert.are.equal("Yabbadabbadoo", deserialized.message)
+      end)
+
+      it("leaves non-JSON strings untouched", function()
+         local err_str = "regular error"
+         local deserialized = Result.deserialize(err_str)
+         assert.are.equal("regular error", deserialized)
+      end)
+
+      it("handles invalid JSON gracefully", function()
+         local invalid_json = "{invalid}"
+         local deserialized = Result.deserialize(invalid_json)
+         assert.are.equal("{invalid}", deserialized)
       end)
    end)
 end)

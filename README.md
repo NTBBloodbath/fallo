@@ -34,6 +34,13 @@ As `fallo` is a self-contained single-file library, you can easily download [fal
 local Result = require("fallo")
 ```
 
+> [!IMPORTANT]
+>
+> Starting from version 2.1.0, fallo uses the `lua-cjson` library by default for structured error
+> serialization. However, this is handled gracefully, so if you embed the library directly in your
+> project or won't be using serialization, you won't encounter any issues and will maintain the
+> behavior of previous versions, though using serialization is recommended.
+
 ## Usage
 
 <details>
@@ -120,9 +127,10 @@ end
 
 ## Core API
 ### Configuration
-| Option                 | Description                        | Default |
-| ---------------------- | ---------------------------------- | ------- |
-| `traceback`            | Whether to add error stack traces  | `true`  |
+| Option                 | Description                                       | Default     |
+| ---------------------- | ------------------------------------------------- | ----------- |
+| `traceback`            | Whether to add error stack traces                 | `true`      |
+| `json`                 | JSON module to be used for serialization or `nil` | `lua-cjson` |
 
 <details>
   <summary>Example</summary>
@@ -132,6 +140,7 @@ local Result = require("fallo")
 
 Result.config = {
   traceback = true,
+  json = vim.json, -- nil to disable JSON serialization
 }
 ```
 
@@ -139,14 +148,16 @@ Result.config = {
 
 ### Result Creation
 
-| Method                 | Description                   | Example                                         |
-| ---------------------- | ----------------------------- | ----------------------------------------------- |
-| `Result.ok(value)`     | Creates successful result     | `Result.ok(42)`                                 |
-| `Result.err(error)`    | Creates error result          | `Result.err("failed")`, `Result.err({ oh = "no" })` |
-| `Result.wrap(fn, ...)` | Wraps function call           | `Result.wrap(os.remove, "temp.txt")`            |
-| `Result.wrap_fn(fn)`   | Creates safe function         | `safe_remove = Result.wrap_fn(remove_tmpfiles)` |
-| `Result.safe(fn)`      | Protected execution context   | `Result.safe(may_fail)`                         |
-| `:with_traceback()`    | Add error traceback to result | `res:with_traceback()`                          |
+| Method                    | Description                   | Example                                             |
+| ------------------------- | ----------------------------- | --------------------------------------------------- |
+| `Result.ok(value)`        | Creates successful result     | `Result.ok(42)`                                     |
+| `Result.err(error)`       | Creates error result          | `Result.err("failed")`, `Result.err({ oh = "no" })` |
+| `Result.wrap(fn, ...)`    | Wraps function call           | `Result.wrap(os.remove, "temp.txt")`                |
+| `Result.wrap_fn(fn)`      | Creates safe function         | `safe_remove = Result.wrap_fn(remove_tmpfiles)`     |
+| `Result.safe(fn)`         | Protected execution context   | `Result.safe(may_fail)`                             |
+| `Result.serialize(err)`   | Serialize a structured error  | `Result.serialize(err)`                             |
+| `Result.deserialize(err)` | Deserialize an error          | `Result.deserialize(err)`                           |
+| `:with_traceback()`       | Add error traceback to result | `res:with_traceback()`                              |
 
 ### Result Handling
 | Method                 | Description                       | Example                                     |
