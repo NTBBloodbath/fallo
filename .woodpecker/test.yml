@@ -1,0 +1,10 @@
+when:
+  event: push
+
+steps:
+  test:
+    image: evandarwin/lua:5.1
+    commands:
+      - luarocks install busted
+      - luarocks install lua-cjson
+      - busted

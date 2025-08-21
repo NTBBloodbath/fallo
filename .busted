@@ -1,6 +1,6 @@
 return {
   _all = {
-    coverage = true,
+    coverage = false,
     lpath = "lua/?.lua;lua/?/init.lua",
     pattern = "%w_spec%.lua",
     ROOT = { "test/" },
