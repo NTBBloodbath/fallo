@@ -4,7 +4,7 @@
 
 ![Lua Version](https://img.shields.io/badge/Lua-5.1+-blue?style=for-the-badge&logo=lua)
 [![LuaRocks](https://img.shields.io/luarocks/v/NTBBloodbath/fallo?style=for-the-badge&logo=lua)](https://luarocks.org/modules/ntbbloodbath/fallo)
-![GitHub License](https://img.shields.io/github/license/NTBBloodbath/fallo?style=for-the-badge&logo=gitbook)
+![License](https://img.shields.io/badge/license-lgpl--3.0-blue?style=for-the-badge)
 
 Fallo (failure in Spanish) is a modern, ergonomic error handling library for Lua with support for structured errors, highly inspired by Rust's `Result`.
 
@@ -182,7 +182,7 @@ Result.config = {
 | `:match(patterns)`     | Pattern matching                  | `res:match({ok=success_fn, err=error_fn})` |
 
 ## Contribute
-1. Fork it (https://github.com/NTBBloodbath/fallo/fork)
+1. Fork it (https://codeberg.org/amartin/fallo/fork)
 2. Create your feature branch (<kbd>git checkout -b my-new-feature</kbd>)
 3. Commit your changes (<kbd>git commit -am "feat: add some feature"</kbd>). **Please use [conventional commits](https://www.conventionalcommits.org/en/v1.0.0/)**.
 4. Push to the branch (<kbd>git push origin my-new-feature</kbd>)
@@ -194,9 +194,9 @@ Result.config = {
 
 ## TODO
 - [x] Allow error propagation
-- [ ] Coroutine-based async error handling
+- [ ] Coroutine-based async error handling (currently only through `Result.safe(fn)`)
 - [x] Expose configuration options (e.g. enable/disable stack traces)
-- [ ] Improve structured errors through metatables
+- [ ] Improve structured errors through metatables (perhaps?)
 
 ## License
 Fallo is licensed under [LGPL-3.0+](./LICENSE).
