@@ -1,0 +1,23 @@
+when:
+  - event: tag
+    ref: refs/tags/v*
+
+steps:
+  generate-rockspec:
+    image: evandarwin/lua:5.1
+    commands:
+      - lua generate_rockspec.lua > ${CI_REPO_NAME}-${CI_COMMIT_TAG##v}-1.rockspec
+    environment:
+      ROCKSPEC_SUMMARY: "Modern error handling for Lua"
+      ROCKSPEC_LICENSE: "LGPL-3.0"
+      DEPENDENCIES: "{ 'lua >= 5.1', 'lua-cjson >= 2.1.0' }"
+      TEST_DEPENDENCIES: "{ 'busted >= 2.2' }"
+
+  publish-luarocks:
+    image: evandarwin/lua:5.1
+    commands:
+      - apk --no-cache add curl zip
+      - luarocks upload --api-key $${LUAROCKS_API_KEY} ${CI_REPO_NAME}-${CI_COMMIT_TAG##v}-1.rockspec
+    environment:
+      LUAROCKS_API_KEY:
+        from_secret: LUAROCKS_API_KEY
