@@ -1,0 +1,24 @@
+package = "fallo"
+version = "scm-1"
+lua = ">=5.1"
+
+[description]
+summary = "Modern and ergonomic error handling for Lua, inspired by Rust's Result."
+maintainer = "NTBBloodbath"
+labels = [ "error-handling", "library", "lua" ]
+license = "LGPL-2.0-only"
+
+[source]
+url = "git+https://github.com/NTBBloodbath/fallo"
+
+[dependencies]
+lua-cjson = ">= 2.1.0"
+
+[run]
+args = [ "src/main.lua" ]
+
+[build]
+type = "builtin"
+
+[build.modules]
+fallo = "lua/fallo/init.lua"

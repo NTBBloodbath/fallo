@@ -1,18 +1,24 @@
----@module 'fallo'
 ---Rust-like Result type for structured error handling
 
----@class Result
+---@alias Error { message: string? }
+---
+---@generic T, E: string|Error
+---@class Result<T, E>
 ---@field ok boolean|function True for success (Ok), false for error (Err)
----@field value any|nil Contained value when ok=true
----@field error any|nil Contained error when ok=false
+---@field value T Contained value when ok=true
+---@field error E Contained error when ok=false
 local Result = {}
+
+---@class CJson
+---@field encode fun(str: table): string
+---@field decode fun(tbl: string): table
 
 ---@class ResultConfig
 ---@field traceback boolean Whether to add tracebacks to errors, enabled by default
----@field json table|nil JSON module to be used, defaults to `lua-cjson`. Set it to `nil` to disable JSON encoding
+---@field json CJson? JSON module to be used, defaults to `lua-cjson`. Set it to `nil` to disable JSON encoding
 Result.config = {
-   traceback = true,
-   json = nil,
+    traceback = true,
+    json = nil,
 }
 
 -- Gracefully set the default JSON library to be used, based off the default one provided in the Luarocks rockspec.
@@ -21,152 +27,152 @@ Result.config = {
 -- embed the library into their projects and don't really need the JSON serialization implementation, and thus avoiding
 -- errors on runtime or having to directly modify the library source code in order to get rid of it.
 local ok_cjson, cjson = pcall(require, "cjson.safe")
-if ok_cjson then Result.config.json = cjson end
+if ok_cjson then Result.config.json = cjson --[[@as CJson]] end
 
 ---Convert a Lua error to a structured error
----@param err any The error value
+---@param err table|string The error value
 ---@param level? number The traceback start level (default: 3)
----@return table Structured error
+---@return { message: string, stack: string? } Structured error
 ---@private
 function Result.structure_error(err, level)
-   if type(err) == "table" then return err end
+    if type(err) == "table" then return err end
 
-   local structured_err = {
-      message = tostring(err),
-   }
+    local structured_err = {
+        message = tostring(err),
+    }
 
-   if Result.config.traceback then structured_err.stack = debug.traceback("", level or 3) end
-   return structured_err
+    if Result.config.traceback then structured_err.stack = debug.traceback("", level --[[@as integer]] or 3) end
+    return structured_err
 end
 
 ---Serialize a structured error into a JSON string if JSON is enabled
 ---Otherwise, returns the error as a string
 ---@param err table Structured error
 function Result.serialize(err)
-   if type(err) == "string" then return err end
+    if type(err) == "string" then return err end
 
-   if type(err) == "table" then
-      -- Try JSON serialization if available
-      if Result.config.json then
-         local ok, json = pcall(Result.config.json.encode, err)
-         if ok then return json end
-      end
+    if type(err) == "table" then
+        -- Try JSON serialization if available
+        if Result.config.json then
+            local ok, json = pcall(Result.config.json.encode, err)
+            if ok then return json end
+        end
 
-      -- Fallback to simple table serialization
-      if err.message then return err.message end
-   end
-   return tostring(err)
+        -- Fallback to simple table serialization
+        if err.message then return err.message end
+    end
+    return tostring(err)
 end
 
 ---Deserialize an error string, using JSON deserialization if JSON is enabled
 ---Otherwise, returns the error as it
 ---@param err string Error string
+---@return string|table
 function Result.deserialize(err)
-   if Result.config.json then
-      local ok, data = pcall(Result.config.json.decode, err)
-      if ok and type(data) == "table" then return data end
-   end
+    if Result.config.json then
+        local ok, data = pcall(Result.config.json.decode, err)
+        if ok and type(data) == "table" then return data end
+    end
 
-   return err
+    return err
 end
 
 ---Metatable for Result objects
 local result_mt = {
-   __index = Result,
-   __newindex = function() error("Results are immutable") end,
+    __index = Result,
+    __newindex = function() error("Results are immutable") end,
 }
 
 ---Create a successful Result
----@generic T
+---@generic T, E: string|table
 ---@param value T The success value
----@return Result<T> Ok result
+---@return Result<T, E> Ok result
 function Result.ok(value) return setmetatable({ ok = true, value = value }, result_mt) end
 
 ---Create an Err result with structured error data
----@generic E
+---@generic T, E: string|table
 ---@param error E The error value
----@return Result<any, E> Err result
+---@return Result<T, E> Err result
 function Result.err(error) return setmetatable({ ok = false, error = error }, result_mt) end
 
 ---Wrap a function to capture its result
----@param fn function Function to wrap
----@vararg any Function arguments
----@return Result result of the function call
+---@generic T, E: string|table, V
+---@param fn fun(...: V...): T Function to wrap
+---@param ... V...
+---@return Result<T, E> result of the function call
 function Result.wrap(fn, ...)
-   local args = { ... }
-   local returns = { pcall(fn, unpack(args)) }
-   local success = table.remove(returns, 1)
+    local args = { ... }
+    local ok, res = pcall(fn, unpack(args))
 
-   if not success then
-      local err = returns[1]
-      -- Attempt to deserialize string errors
-      if type(err) == "string" then
-         ---@diagnostic disable-next-line
-         err = Result.deserialize(err)
-      end
-      if type(err) == "table" then
-         -- Preserve existing structured errors
-         return Result.err(err)
-      end
-      -- capture traceback stack for new errors
-      if Result.config.traceback then return Result.err(err):with_traceback() end
-      return Result.err(err)
-   end
+    if not ok then
+        -- Attempt to deserialize string errors
+        local err = Result.deserialize(res --[[@as string]])
 
-   return Result.ok(#returns > 1 and returns or returns[1])
+        -- capture traceback stack for new errors
+        if Result.config.traceback then return Result.err(err):with_traceback() end
+        return Result.err(err)
+    end
+
+    return Result.ok(res)
 end
 
 ---Create a function wrapper that returns Results
----@param fn function Function to wrap
----@return function(...):Result Wrapped function
+---@generic V, T, E: string|table
+---@param fn fun(...: V...): T Function to wrap
+---@return fun(...: V...): Result<T, E> Wrapped function
 function Result.wrap_fn(fn)
-   return function(...) return Result.wrap(fn, ...) end
+    return function(...) return Result.wrap(fn, ...) end
 end
 
 ---Unwrap value or throw error
----@return any Success value
-function Result:unwrap()
-   if self.ok then
-      return self.value
-   else
-      error(self.error, 2)
-   end
+---@generic T, E: string|table
+---@param self Result<T, E>
+---@return T
+function Result.unwrap(self)
+    if self.ok then
+        return self.value
+    else
+        error(self.error, 2)
+    end
 end
 
 ---Unwrap or return default value
----@generic T
+---@generic T, E: string|table
+---@param self Result<T, E>
 ---@param default T Default value
----@return T|any Value or default
-function Result:unwrap_or(default)
-   if self.ok then return self.value end
-   return default
+---@return T Value or default
+function Result.unwrap_or(self, default)
+    if self.ok then return self.value end
+    return default
 end
 
 ---Unwrap or compute from error
----@generic T, E
+---@generic T, E: string|table
+---@param self Result<T, E>
 ---@param fn fun(error: E): T Default generator
----@return T|any Value or computed default
-function Result:unwrap_or_else(fn)
-   if self.ok then return self.value end
-   return fn(self.error)
+---@return T Value or computed default
+function Result.unwrap_or_else(self, fn)
+    if self.ok then return self.value end
+    return fn(self.error)
 end
 
 ---Unwrap or throw with custom message
+---@generic T, E: string|table
+---@param self Result<T, E>
 ---@param message string Custom error message
----@return any Success value
-function Result:expect(message)
-   if self.ok then
-      return self.value
-   else
-      error(string.format("%s: %s", message, Result.serialize(self.error)), 2)
-   end
+---@return T Success value
+function Result.expect(self, message)
+    if self.ok then
+        return self.value
+    else
+        error(string.format("%s: %s", message, Result.serialize(self.error)), 2)
+    end
 end
 
 ---Check if result is Ok
 ---@return boolean True is result is Ok
 function Result:is_ok()
-   ---@type boolean
-   return self.ok
+    return not not self.ok
 end
 
 ---Check if result is Err
@@ -174,76 +180,82 @@ end
 function Result:is_err() return not self.ok end
 
 ---Map success value to new value
----@generic T, U
+---@generic T, E: string|table, U
+---@param self Result<T, E>
 ---@param fn fun(value: T): U Mapping function
----@return Result<U> New result
-function Result:map(fn)
-   if self.ok then return Result.ok(fn(self.value)) end
-   return self
+---@return Result<U, E> New result
+function Result.map(self, fn)
+    if self.ok then
+        return Result.ok(fn(self.value))
+    end
+
+    return self
 end
 
 ---Map error value to a new error
----@generic E, F
+---@generic T, E, F
+---@param self Result<T, E>
 ---@param fn fun(error: E): F Mapping function
----@return Result New result
-function Result:map_err(fn)
-   if not self.ok then
-      local new_err = fn(self.error)
+---@return Result<T, F> New result
+function Result.map_err(self, fn)
+    if not self.ok then
+        local new_err = fn(self.error)
 
-      -- Preserve structured error metadata
-      if type(self.error) == "table" and type(new_err) == "table" then
-         new_err.stack = new_err.stack or self.error.stack
-      end
-      return Result.err(new_err)
-   end
-   return self
+        -- Preserve structured error metadata
+        if type(self.error) == "table" and type(new_err) == "table" then
+            new_err.stack = new_err.stack or self.error.stack
+        end
+
+        return Result.err(new_err)
+    end
+
+    return self
 end
 
 ---Chain operations that return Results
----@generic T, U
----@param fn fun(value: T): Result<U> Chaining function
----@return Result<U> New result
-function Result:and_then(fn)
-   if self.ok then return fn(self.value) end
-   return self
+---@generic T, U, E: string|table
+---@param self Result<T, E>
+---@param fn fun(value: T): Result<U, E> Chaining function
+---@return Result<U, E> New result
+function Result.and_then(self, fn)
+    if self.ok then return fn(self.value) end
+    return self
 end
 
 ---Recover from error with new Result
----@generic E, T
----@param fn fun(error: E): Result<T> Recovery function
----@return Result<T> New result
-function Result:or_else(fn)
-   if self.ok then return self end
-   return fn(self.error)
+---@generic E: string|table, T
+---@param self Result<T, E>
+---@param fn fun(error: E): Result<T, E> Recovery function
+---@return Result<T, E> New result
+function Result.or_else(self, fn)
+    if self.ok then return self end
+    return fn(self.error)
 end
 
----@generic T, U
----@alias ok_fn fun(value: T): U
-
----@generic E, U
----@alias err_fn fun(error: E): U
-
 ---Pattern-match on result state
----@generic U
----@param patterns {ok: ok_fn, err: err_fn}
+---@generic T, E: string|table, U
+---@param self Result<T, E>
+---@param patterns { ok: (fun(valid: T): U), err: (fun(err: E): U) }
 ---@return U Result of matching pattern
-function Result:match(patterns)
-   if self.ok then
-      return patterns.ok and patterns.ok(self.value)
-   else
-      return patterns.err and patterns.err(self.error)
-   end
+function Result.match(self, patterns)
+    if self.ok then
+        return patterns.ok and patterns.ok(self.value)
+    else
+        return patterns.err and patterns.err(self.error)
+    end
 end
 
 ---Convert to Lua's error system
 ---Returns values if Ok, throws error if Err
----@return any ... Result values if Ok, formatted error if Err
-function Result:to_lua_error()
-   if self.ok then
-      return self.value
-   else
-      error(Result.serialize(self.error), 0)
-   end
+---@generic T, E: string|table
+---@param self Result<T, E>
+---@return T Result values if Ok, formatted error if Err
+function Result.to_lua_error(self)
+    if self.ok then
+        return self.value
+    else
+        error(Result.serialize(self.error), 0)
+    end
 end
 
 ---Convert from pcall returns to Result
@@ -251,12 +263,12 @@ end
 ---@param ... any Return values from pcall
 ---@return Result
 function Result.from_pcall(success, ...)
-   if not success then
-      local err = ...
-      if type(err) == "string" then err = Result.deserialize(err) end
-      return Result.err(Result.structure_error(err))
-   end
-   return Result.ok({ ... })
+    if not success then
+        local err = ...
+        if type(err) == "string" then err = Result.deserialize(err) end
+        return Result.err(Result.structure_error(err))
+    end
+    return Result.ok({ ... })
 end
 
 ---Safe pcall wrapper returning Result
@@ -270,11 +282,11 @@ function Result.pcall(fn, ...) return Result.from_pcall(pcall(fn, ...)) end
 ---@param result any Return value from xpcall
 ---@return Result
 function Result.from_xpcall(success, result)
-   if not success then
-      if type(result) == "string" then result = Result.deserialize(result) end
-      return Result.err(Result.structure_error(result))
-   end
-   return Result.ok(result)
+    if not success then
+        if type(result) == "string" then result = Result.deserialize(result) end
+        return Result.err(Result.structure_error(result))
+    end
+    return Result.ok(result)
 end
 
 ---Convert to Lua's xpcall system
@@ -282,11 +294,11 @@ end
 ---@param message_handler function Custom message handler
 ---@return any ... Result values if Ok
 function Result:to_xpcall(message_handler)
-   if self.ok then
-      return self.value
-   else
-      error(message_handler(self.error), 0)
-   end
+    if self.ok then
+        return self.value
+    else
+        error(message_handler(self.error), 0)
+    end
 end
 
 ---Convert from Lua's assert pattern
@@ -294,23 +306,23 @@ end
 ---@param ... any Return values from protected call
 ---@return Result
 function Result.from_assert(success, ...)
-   if not success then
-      local err = ...
-      if type(err) == "string" then err = Result.deserialize(err) end
-      return Result.err(Result.structure_error(err))
-   end
-   return Result.ok(...)
+    if not success then
+        local err = ...
+        if type(err) == "string" then err = Result.deserialize(err) end
+        return Result.err(Result.structure_error(err))
+    end
+    return Result.ok(...)
 end
 
 ---Convert to Lua's assert system
 ---Returns values if Ok, throws error if Err using `assert()`
 ---@return any ... Result values if Ok
 function Result:to_assert()
-   if self.ok then
-      return self.value
-   else
-      return false, Result.serialize(self.error)
-   end
+    if self.ok then
+        return self.value
+    else
+        return false, Result.serialize(self.error)
+    end
 end
 
 ---Perform side effect on success value without modification
@@ -318,8 +330,8 @@ end
 ---@param fn fun(value: T) Inspection function
 ---@return Result Same result
 function Result:inspect(fn)
-   if self.ok then fn(self.value) end
-   return self
+    if self.ok then fn(self.value) end
+    return self
 end
 
 ---Perform side effect on error value without modification
@@ -327,31 +339,31 @@ end
 ---@param fn fun(error: E) Inspection function
 ---@return Result Same result
 function Result:inspect_err(fn)
-   if not self.ok then fn(self.error) end
-   return self
+    if not self.ok then fn(self.error) end
+    return self
 end
 
 ---Add stack trace to error (if enabled in config)
 ---@return Result self (for chaining)
 function Result:with_traceback()
-   if not self.ok and Result.config.traceback then
-      local err = self.error
+    if not self.ok and Result.config.traceback then
+        local err = self.error
 
-      -- Ensure error is structured
-      if type(err) ~= "table" then self.error = Result.structure_error(err, 2) end
+        -- Ensure error is structured
+        if type(err) ~= "table" then self.error = Result.structure_error(err, 2) end
 
-      -- Add traceback if not already present
-      if type(err) == "table" and not err.stack then err.stack = debug.traceback("", 2) end
-   end
-   return self
+        -- Add traceback if not already present
+        if type(err) == "table" and not err.stack then err.stack = debug.traceback("", 2) end
+    end
+    return self
 end
 
 ---Propagate the error if Result is Err, otherwise return value
 ---@return any value if Ok
 function Result:try()
-   if self.ok then return self.value end
+    if self.ok then return self.value end
 
-   error(Result.serialize(self.error), 0)
+    error(Result.serialize(self.error), 0)
 end
 
 ---Create a protected execution context for error propagation
@@ -359,45 +371,46 @@ end
 ---@param fn fun(): T Function to execute in protected mode
 ---@return Result<T> Result of the execution
 function Result.safe(fn)
-   local co = coroutine.create(fn)
+    local co = coroutine.create(fn)
 
-   local function step(...)
-      local returns = { coroutine.resume(co, ...) }
-      local success = table.remove(returns, 1)
+    local function step(...)
+        local returns = { coroutine.resume(co, ...) }
+        local success = table.remove(returns, 1) --[[@as boolean]]
 
-      if not success then
-         local err = returns[1]
-         if type(err) == "string" then
-            ---@diagnostic disable-next-line
-            err = Result.deserialize(err)
-         end
+        ---@cast returns any[]
 
-         if Result.config.traceback then return Result.err(err):with_traceback() end
-         return Result.err(err)
-      end
-
-      if coroutine.status(co) == "dead" then return Result.ok(returns[1] or returns) end
-
-      -- Handle results from the function
-      local result = returns[1]
-      if type(result) == "table" and getmetatable(result) == result_mt then
-         if result:is_err() then
-            -- Preserve structured error metadata
-            local err = result.error
-            if type(err) == "table" and err.stack then
-               -- Append current stack to existing trace
-               local current_trace = debug.traceback("", 2)
-               result.error.stack = err.stack and (err.stack .. "\n" .. current_trace) or current_trace
+        if not success then
+            local err = returns[1]
+            if type(err) == "string" then
+                err = Result.deserialize(err)
             end
-            return result
-         end
-         return step(result:unwrap())
-      end
 
-      return step(unpack(returns))
-   end
+            if Result.config.traceback then return Result.err(err):with_traceback() end
+            return Result.err(err)
+        end
 
-   return step()
+        if coroutine.status(co) == "dead" then return Result.ok(returns[1] or returns) end
+
+        -- Handle results from the function
+        local result = returns[1]
+        if type(result) == "table" and getmetatable(result) == result_mt then
+            if result:is_err() then
+                -- Preserve structured error metadata
+                local err = result.error
+                if type(err) == "table" and err.stack then
+                    -- Append current stack to existing trace
+                    local current_trace = debug.traceback("", 2)
+                    result.error.stack = err.stack and (err.stack .. "\n" .. current_trace) or current_trace
+                end
+                return result
+            end
+            return step(result:unwrap())
+        end
+
+        return step(unpack(returns))
+    end
+
+    return step()
 end
 
 return Result
