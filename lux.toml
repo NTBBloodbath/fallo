@@ -1,5 +1,5 @@
 package = "fallo"
-version = "scm-1"
+version = "2.3.0"
 lua = ">=5.1"
 
 [description]
@@ -22,3 +22,6 @@ type = "builtin"
 
 [build.modules]
 fallo = "lua/fallo/init.lua"
+
+[test]
+type = "busted"
