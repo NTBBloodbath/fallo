@@ -293,7 +293,11 @@ function Result.from_pcall(success, ...)
         if type(err) == "string" then err = Result.deserialize(err) end
         return Result.err(Result.structure_error(err))
     end
-    return Result.ok({ ... })
+    -- If there's only one return value, return it directly; otherwise, return all values as a table
+    -- This allows for more natural handling of functions that return multiple values, along with
+    -- preserving the consistency with Result.wrap and Result.from_assert which also support multiple return values.
+    local value = ...
+    return Result.ok(value)
 end
 
 ---Safe pcall wrapper returning Result
