@@ -1,6 +1,7 @@
 when:
   - event: tag
     ref: refs/tags/v*
+  - event: manual
 
 steps:
   generate-rockspec:
