@@ -219,22 +219,20 @@ end
 ---@param results Result<T, E>[]
 ---@return Result<T[], E>
 function Result.all(results)
-   return Result.ok(results)
-      :map(function(items) return items end)
-      :and_then(function(items)
-         local values = {}
+   return Result.ok(results):map(function(items) return items end):and_then(function(items)
+      local values = {}
 
-         for i, result in ipairs(items) do
-            if type(result) ~= "table" or getmetatable(result) ~= result_mt then
-               return Result.err(Result.structure_error("Result.all expects an array of Result values"))
-            end
-
-            if result:is_err() then return result end
-            values[i] = result:unwrap()
+      for i, result in ipairs(items) do
+         if type(result) ~= "table" or getmetatable(result) ~= result_mt then
+            return Result.err(Result.structure_error("Result.all expects an array of Result values"))
          end
 
-         return Result.ok(values)
-      end)
+         if result:is_err() then return result end
+         values[i] = result:unwrap()
+      end
+
+      return Result.ok(values)
+   end)
 end
 
 ---Map error value to a new error
