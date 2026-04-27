@@ -74,8 +74,8 @@ describe("Result class", function()
 
       it("short-circuits errors", function()
          local res = Result.ok(5)
-            :and_then(function() return Result.err("fail") end)
-            :and_then(function() return Result.ok(10) end)
+             :and_then(function() return Result.err("fail") end)
+             :and_then(function() return Result.ok(10) end)
 
          assert.is_true(res:is_err())
       end)
@@ -328,12 +328,12 @@ describe("Result class", function()
          }):with_traceback()
 
          local transformed = original
-            :map_err(function(err)
-               err.message = "Modified: " .. err.message
-               err.extra = "new field"
-               return err
-            end)
-            :with_traceback()
+             :map_err(function(err)
+                err.message = "Modified: " .. err.message
+                err.extra = "new field"
+                return err
+             end)
+             :with_traceback()
 
          assert.is_true(transformed:is_err())
          local err = transformed.error
@@ -357,22 +357,22 @@ describe("Result class", function()
       it("preserves error structure through multiple transformations", function()
          local res = Result.safe(function()
             Result
-               .err({
-                  code = 400,
-                  message = "Bad request",
-               })
-               :map_err(
-                  function(e)
-                     return {
-                        code = e.code,
-                        message = "Validation: " .. e.message,
-                        stage = "input",
-                     }
-                  end
-               )
-               :inspect_err(function(e) e.checked = true end)
-               ---@diagnostic disable-next-line missing-return
-               :unwrap()
+                .err({
+                   code = 400,
+                   message = "Bad request",
+                })
+                :map_err(
+                   function(e)
+                      return {
+                         code = e.code,
+                         message = "Validation: " .. e.message,
+                         stage = "input",
+                      }
+                   end
+                )
+                :inspect_err(function(e) e.checked = true end)
+            ---@diagnostic disable-next-line missing-return
+                :unwrap()
          end)
 
          assert.is_true(res:is_err())
@@ -508,9 +508,9 @@ describe("Result class", function()
 
       it("chains multiple contexts for debugging pipelines", function()
          local res = Result.err("Unexpected key 'foo'")
-            :with_context("Schema validation failed")
-            :with_context("Configuration parsing failed")
-            :with_context("Configuration load operation failed")
+             :with_context("Schema validation failed")
+             :with_context("Configuration parsing failed")
+             :with_context("Configuration load operation failed")
 
          assert.is_true(res:is_err())
          assert.are.equal(
@@ -537,7 +537,7 @@ describe("Result class", function()
 
       it("preserves error metadata through context enrichment", function()
          local res = Result.wrap(function() error("original error") end)
-            :with_context("operation failed")
+             :with_context("operation failed")
 
          assert.is_true(res:is_err())
          local err = res.error
@@ -549,9 +549,9 @@ describe("Result class", function()
       it("works in transformation chains", function()
          local res = Result.safe(function()
             return Result.err("Failed to connect")
-               :with_context("Database initialization")
-               :and_then(function() return Result.ok("never_reached") end)
-               :unwrap()
+                :with_context("Database initialization")
+                :and_then(function() return Result.ok("never_reached") end)
+                :unwrap()
          end)
 
          assert.is_true(res:is_err())
@@ -566,6 +566,49 @@ describe("Result class", function()
 
          assert.is_true(res:is_err())
          assert.are.equal("Loading config: File not found", res.error.message)
+      end)
+   end)
+
+   describe("Result.all #all", function()
+      it("collects values when all results are Ok", function()
+         local res = Result.all({ Result.ok(1), Result.ok(2), Result.ok(3) })
+
+         assert.is_true(res:is_ok())
+         assert.are.same({ 1, 2, 3 }, res:unwrap())
+      end)
+
+      it("returns the first Err result", function()
+         local res = Result.all({
+            Result.ok(1),
+            Result.err("boom"),
+            Result.err("later error"),
+         })
+
+         assert.is_true(res:is_err())
+         assert.are.equal("boom", res.error)
+      end)
+
+      it("returns Ok with empty list", function()
+         local res = Result.all({})
+
+         assert.is_true(res:is_ok())
+         assert.are.same({}, res:unwrap())
+      end)
+
+      it("returns Err for non-Result entries", function()
+         local res = Result.all({ Result.ok(1), "not-a-result" })
+
+         assert.is_true(res:is_err())
+         assert.are.equal("Result.all expects an array of Result values", res.error.message)
+      end)
+
+      it("works in chaining workflows", function()
+         local res = Result
+            .all({ Result.ok(2), Result.ok(4) })
+            :map(function(values) return values[1] + values[2] end)
+
+         assert.is_true(res:is_ok())
+         assert.are.equal(6, res:unwrap())
       end)
    end)
 end)
