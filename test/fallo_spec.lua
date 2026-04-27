@@ -447,7 +447,7 @@ describe("Result class", function()
       end)
    end)
 
-   describe("Error Serialization", function()
+   describe("Error Serialization #serialization", function()
       it("serializes structured error without JSON", function()
          -- Save existing JSON implementation to restore it later
          local json = Result.config.json
@@ -483,6 +483,89 @@ describe("Result class", function()
          local invalid_json = "{invalid}"
          local deserialized = Result.deserialize(invalid_json)
          assert.are.equal("{invalid}", deserialized)
+      end)
+   end)
+
+   describe("Context enrichment #context", function()
+      it("adds context to string errors", function()
+         local res = Result.err("Division by zero"):with_context("arithmetic operation failed")
+
+         assert.is_true(res:is_err())
+         assert.are.equal("arithmetic operation failed: Division by zero", res.error.message)
+      end)
+
+      it("adds context to structured errors", function()
+         local res = Result.err({
+            code = 404,
+            message = "User not found",
+         }):with_context("Could not load user profile")
+
+         assert.is_true(res:is_err())
+         local err = res.error
+         assert.are.equal("Could not load user profile: User not found", err.message)
+         assert.are.equal(404, err.code)
+      end)
+
+      it("chains multiple contexts for debugging pipelines", function()
+         local res = Result.err("Unexpected key 'foo'")
+            :with_context("Schema validation failed")
+            :with_context("Configuration parsing failed")
+            :with_context("Configuration load operation failed")
+
+         assert.is_true(res:is_err())
+         assert.are.equal(
+            "Configuration load operation failed: Configuration parsing failed: Schema validation failed: Unexpected key 'foo'",
+            res.error.message
+         )
+      end)
+
+      it("does not mutate the original error", function()
+         local original = Result.err({ code = 500, message = "Server error" })
+         local contextual = original:with_context("API request failed")
+
+         assert.are.equal("Server error", original.error.message)
+         assert.are.equal("API request failed: Server error", contextual.error.message)
+         assert.are_not_equal(original.error, contextual.error)
+      end)
+
+      it("leaves Ok results unchanged", function()
+         local res = Result.ok(42):with_context("some context")
+
+         assert.is_true(res:is_ok())
+         assert.are.equal(42, res:unwrap())
+      end)
+
+      it("preserves error metadata through context enrichment", function()
+         local res = Result.wrap(function() error("original error") end)
+            :with_context("operation failed")
+
+         assert.is_true(res:is_err())
+         local err = res.error
+         assert.are.equal("operation failed: original error", err.message)
+         assert.is_string(err.source)
+         assert.is_string(err.stack)
+      end)
+
+      it("works in transformation chains", function()
+         local res = Result.safe(function()
+            return Result.err("Failed to connect")
+               :with_context("Database initialization")
+               :and_then(function() return Result.ok("never_reached") end)
+               :unwrap()
+         end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("Database initialization: Failed to connect", res.error.message)
+      end)
+
+      it("enriches errors caught by safe blocks", function()
+         local res = Result.safe(function()
+            local load_result = Result.err("File not found"):with_context("Loading config")
+            return load_result:unwrap()
+         end)
+
+         assert.is_true(res:is_err())
+         assert.are.equal("Loading config: File not found", res.error.message)
       end)
    end)
 end)
