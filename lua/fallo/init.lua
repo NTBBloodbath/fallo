@@ -77,23 +77,40 @@ function Result.deserialize(err)
     return err
 end
 
+-- Private symbol key: external code has no reference to this table,
+-- so it cannot read or write the internal data through rawget/rawset.
+local _private = {}
+
 ---Metatable for Result objects
 local result_mt = {
-    __index = Result,
-    __newindex = function() error("Results are immutable") end,
+    __index = function(self, key)
+        -- Read from private data storage first, then fall back to Result methods.
+        local data = rawget(self, _private)
+        if data ~= nil and data[key] ~= nil then return data[key] end
+        return Result[key]
+    end,
+    __newindex = function() error("Results are immutable", 2) end,
 }
 
 ---Create a successful Result
 ---@generic T, E: string|table
 ---@param value T The success value
 ---@return Result<T, E> Ok result
-function Result.ok(value) return setmetatable({ ok = true, value = value }, result_mt) end
+function Result.ok(value)
+    local t = setmetatable({}, result_mt)
+    rawset(t, _private, { ok = true, value = value })
+    return t
+end
 
 ---Create an Err result with structured error data
 ---@generic T, E: string|table
 ---@param error E The error value
 ---@return Result<T, E> Err result
-function Result.err(error) return setmetatable({ ok = false, error = error }, result_mt) end
+function Result.err(error)
+    local t = setmetatable({}, result_mt)
+    rawset(t, _private, { ok = false, error = error })
+    return t
+end
 
 ---Wrap a function to capture its result
 ---@generic T, E: string|table, V
@@ -344,16 +361,24 @@ function Result:inspect_err(fn)
 end
 
 ---Add stack trace to error (if enabled in config)
----@return Result self (for chaining)
+---Returns a new Result with the enriched error; the original is unchanged.
+---@return Result New result with traceback (or self if Ok / traceback disabled)
 function Result:with_traceback()
     if not self.ok and Result.config.traceback then
         local err = self.error
 
-        -- Ensure error is structured
-        if type(err) ~= "table" then self.error = Result.structure_error(err, 2) end
+        -- Ensure error is a structured table
+        if type(err) ~= "table" then
+            err = Result.structure_error(err, 2)
+        elseif not err.stack then
+            -- Shallow-copy to avoid mutating the original error table
+            local copy = {}
+            for k, v in pairs(err) do copy[k] = v end
+            copy.stack = debug.traceback("", 2)
+            err = copy
+        end
 
-        -- Add traceback if not already present
-        if type(err) == "table" and not err.stack then err.stack = debug.traceback("", 2) end
+        return Result.err(err)
     end
     return self
 end
