@@ -213,6 +213,30 @@ function Result.map(self, fn)
    return self
 end
 
+---Collect an array of Result values into a single Result
+---Returns Ok(array_of_values) if all entries are Ok, otherwise the first Err
+---@generic T, E: string|table
+---@param results Result<T, E>[]
+---@return Result<T[], E>
+function Result.all(results)
+   return Result.ok(results)
+      :map(function(items) return items end)
+      :and_then(function(items)
+         local values = {}
+
+         for i, result in ipairs(items) do
+            if type(result) ~= "table" or getmetatable(result) ~= result_mt then
+               return Result.err(Result.structure_error("Result.all expects an array of Result values"))
+            end
+
+            if result:is_err() then return result end
+            values[i] = result:unwrap()
+         end
+
+         return Result.ok(values)
+      end)
+end
+
 ---Map error value to a new error
 ---@generic T, E, F
 ---@param self Result<T, E>
