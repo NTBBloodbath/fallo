@@ -216,9 +216,17 @@ end
 ---@return Result<T, F> New result
 function Result.map_err(self, fn)
     if not self.ok then
-        local new_err = fn(self.error)
+        -- Shallow-copy structured errors so the callback cannot mutate the original
+        local err = self.error
+        if type(err) == "table" then
+            local copy = {}
+            for k, v in pairs(err) do copy[k] = v end
+            err = copy
+        end
 
-        -- Preserve structured error metadata
+        local new_err = fn(err)
+
+        -- Preserve structured error metadata from the original
         if type(self.error) == "table" and type(new_err) == "table" then
             new_err.stack = new_err.stack or self.error.stack
         end
