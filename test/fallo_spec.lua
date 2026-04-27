@@ -416,7 +416,7 @@ describe("Result class", function()
 
          local ok, err = pcall(test)
          assert.is_false(ok)
-         assert.are.equal("test error", err)
+         assert.are.equal("test/fallo_spec.lua:415: test error", err)
       end)
 
       it("returns values from Result.ok", function()
@@ -431,7 +431,7 @@ describe("Result class", function()
 
          local ok, err = pcall(outer)
          assert.is_false(ok)
-         assert.are.equal("inner error", err)
+         assert.are.equal("test/fallo_spec.lua:428: inner error", err)
       end)
 
       it("combines with safe blocks", function()
@@ -441,7 +441,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("propagated in try", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:440: propagated in try", res.error.message)
       end)
    end)
 
