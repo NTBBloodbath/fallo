@@ -1,6 +1,6 @@
 ---Rust-like Result type for structured error handling
 
----@alias Error { message: string? }
+---@alias Error { message: string?, source: string? }
 ---
 ---@generic T, E: string|Error
 ---@class Result<T, E>
@@ -32,13 +32,17 @@ if ok_cjson then Result.config.json = cjson --[[@as CJson]] end
 ---Convert a Lua error to a structured error
 ---@param err table|string The error value
 ---@param level? number The traceback start level (default: 3)
----@return { message: string, stack: string? } Structured error
+---@return { message: string, source: string?, stack: string? } Structured error
 ---@private
 function Result.structure_error(err, level)
     if type(err) == "table" then return err end
 
+    local str = tostring(err)
+    local source, message = str:match("^(.+:%d+): (.+)$")
+
     local structured_err = {
-        message = tostring(err),
+        message = message or str,
+        source = source,
     }
 
     if Result.config.traceback then structured_err.stack = debug.traceback("", level --[[@as integer]] or 3) end
