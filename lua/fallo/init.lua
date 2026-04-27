@@ -403,6 +403,37 @@ function Result:with_traceback()
    return self
 end
 
+---Add context message to an error
+---The context is prepended to the existing error message, creating a chain of contexts
+---For success Results, returns self unchanged
+---@generic T, E
+---@param self Result<T, E>
+---@param message string Context message to attach
+---@return Result<T, E> New Result with enriched error message or self if Ok
+function Result:with_context(message)
+   if self.ok then return self end
+
+   local err = self.error
+   if type(err) == "table" then
+      -- Shallow-copy the error to keep immutability
+      local copy = {}
+      for k, v in pairs(err) do
+         copy[k] = v
+      end
+
+      -- Prepend context to the existing message
+      local original_message = err.message or tostring(err)
+      copy.message = message .. ": " .. original_message
+
+      return Result.err(copy)
+   else
+      -- For string errors, structure and add context
+      local structured = Result.structure_error(err, 2)
+      structured.message = message .. ": " .. (structured.message or tostring(err))
+      return Result.err(structured)
+   end
+end
+
 ---Propagate the error if Result is Err, otherwise return value
 ---@return any value if Ok
 function Result:try()
