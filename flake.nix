@@ -16,6 +16,7 @@
     devShells = forEachSupportedSystem ({ pkgs }: {
       default = pkgs.mkShell {
         packages = with pkgs; [
+          lux-cli
           stylua
           lua5_1
           lua-language-server
