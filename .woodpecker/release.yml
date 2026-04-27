@@ -7,7 +7,7 @@ steps:
   publish-luarocks:
     image: nixos/nix
     commands:
-      - nix --extra-experimental-features "nix-command flakes" develop --command lx upload
+      - nix --extra-experimental-features "nix-command flakes" develop --command lx upload --sign-protocol none
     environment:
       LUX_API_KEY:
         from_secret: LUAROCKS_API_KEY
