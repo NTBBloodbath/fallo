@@ -388,7 +388,7 @@ end
 function Result:try()
     if self.ok then return self.value end
 
-    error(Result.serialize(self.error), 0)
+    error(self.error, 2)
 end
 
 ---Create a protected execution context for error propagation
