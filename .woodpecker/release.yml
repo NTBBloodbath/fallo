@@ -9,5 +9,5 @@ steps:
     commands:
       - nix --extra-experimental-features "nix-command flakes" develop --command lx upload
     environment:
-      LUAROCKS_API_KEY:
+      LUX_API_KEY:
         from_secret: LUAROCKS_API_KEY
