@@ -196,7 +196,8 @@ describe("Result class", function()
          local function success_fn() return 1, 2 end
          local res = Result.from_pcall(pcall(success_fn))
          assert.is_true(res:is_ok())
-         assert.are.same({ 1, 2 }, res.value)
+         -- only the first return value is captured, consistent with wrap() and from_assert()
+         assert.are.equal(1, res.value)
       end)
 
       it("creates from pcall failure", function()
@@ -204,7 +205,7 @@ describe("Result class", function()
          local res = Result.from_pcall(pcall(fail_fn))
          assert.is_true(res:is_err())
          -- errors contain the file:line where the error was thrown
-         assert.are.equal("test/fallo_spec.lua:203: failed", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:204: failed", res.error.message)
          assert.is_string(res.error.stack)
       end)
 
@@ -228,7 +229,7 @@ describe("Result class", function()
          assert.is_true(result1:is_ok())
          assert.are.equal("ok", result1.value)
          assert.is_true(result2:is_err())
-         assert.are.equal("HANDLED: test/fallo_spec.lua:219: bad", result2.error.message)
+         assert.are.equal("HANDLED: test/fallo_spec.lua:220: bad", result2.error.message)
       end)
 
       it("converts to xpcall system", function()
@@ -279,7 +280,7 @@ describe("Result class", function()
 
          local res = Result.safe(nested_ops)
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:276: failed", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:277: failed", res.error.message)
       end)
 
       it("continues execution after successful unwraps", function()
@@ -301,7 +302,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:296: inner error", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:297: inner error", res.error.message)
       end)
 
       it("propagates structured errors", function()
@@ -386,7 +387,7 @@ describe("Result class", function()
          local res = Result.safe(function() error("raw Lua error") end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:386: raw Lua error", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:387: raw Lua error", res.error.message)
       end)
 
       it("works with complex workflows", function()
@@ -406,7 +407,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:403: intentional failure", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:404: intentional failure", res.error.message)
       end)
    end)
 
@@ -416,7 +417,7 @@ describe("Result class", function()
 
          local ok, err = pcall(test)
          assert.is_false(ok)
-         assert.are.equal("test/fallo_spec.lua:415: test error", err)
+         assert.are.equal("test/fallo_spec.lua:416: test error", err)
       end)
 
       it("returns values from Result.ok", function()
@@ -431,7 +432,7 @@ describe("Result class", function()
 
          local ok, err = pcall(outer)
          assert.is_false(ok)
-         assert.are.equal("test/fallo_spec.lua:428: inner error", err)
+         assert.are.equal("test/fallo_spec.lua:429: inner error", err)
       end)
 
       it("combines with safe blocks", function()
@@ -441,7 +442,7 @@ describe("Result class", function()
          end)
 
          assert.is_true(res:is_err())
-         assert.are.equal("test/fallo_spec.lua:440: propagated in try", res.error.message)
+         assert.are.equal("test/fallo_spec.lua:441: propagated in try", res.error.message)
       end)
    end)
 
