@@ -2,6 +2,7 @@ when:
   - event: push
     path:
       include: ['lua/*', 'test/*']
+  - event: manual
 
 steps:
   test:
