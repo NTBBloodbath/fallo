@@ -1,5 +1,6 @@
 # Direnv stuff
 .direnv/
+.lux/
 
 # Code coverage reports
 luacov.*

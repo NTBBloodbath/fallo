@@ -1,6 +1,6 @@
 ---Rust-like Result type for structured error handling
 
----@alias Error { message: string?, source: string? }
+---@alias Error { message: string?, source: string?, stack: string? }
 ---
 ---@generic T, E: string|Error
 ---@class Result<T, E>
@@ -31,6 +31,8 @@ if ok_cjson then
    Result.config.json = cjson --[[@as CJson]]
 end
 
+---@diagnostic disable-next-line: deprecated
+local _unpack = table.unpack or unpack
 ---Convert a Lua error to a structured error
 ---@param err table|string The error value
 ---@param level? number The traceback start level (default: 3)
@@ -127,7 +129,7 @@ end
 ---@return Result<T, E> result of the function call
 function Result.wrap(fn, ...)
    local args = { ... }
-   local ok, res = pcall(fn, unpack(args))
+   local ok, res = pcall(fn, _unpack(args))
 
    if not ok then
       -- Attempt to deserialize string errors
@@ -503,7 +505,7 @@ function Result.safe(fn)
          return step(result:unwrap())
       end
 
-      return step(unpack(returns))
+      return step(_unpack(returns))
    end
 
    return step()
