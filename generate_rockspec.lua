@@ -24,7 +24,7 @@ description = {
 
 source = {
   url = '$repo_url/archive/$git_ref.zip',
-  dir = '$package'
+  dir = '$package-$modrev'
 }
 
 dependencies = $dependencies
@@ -40,6 +40,7 @@ build = {
 ---@diagnostic disable param-type-mismatch
 local content = template:gsub("$package", repo_name)
     :gsub("$version", modrev .. "-" .. specrev)
+    :gsub("$modrev", modrev)
     :gsub("$summary", summary)
     :gsub("$homepage", repo_url)
     :gsub("$license", license)
