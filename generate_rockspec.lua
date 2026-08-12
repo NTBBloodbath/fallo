@@ -11,6 +11,17 @@ local test_dependencies = os.getenv("TEST_DEPENDENCIES") or {}
 local modrev = git_ref:match("^v?(.+)$")
 local specrev = 1
 
+local source_url_template
+if repo_name and repo_name:match("codeberg") then
+  source_url_template = "$repo_url/archive/$git_ref.zip"
+else
+  source_url_template = "$repo_url/archive/refs/tags/$git_ref.zip"
+end
+---@diagnostic disable param-type-mismatch
+local source_url = source_url_template
+    :gsub("$repo_url", repo_url)
+    :gsub("$git_ref", git_ref)
+
 local template = [[
 rockspec_format = '3.0'
 package = '$package'
@@ -23,7 +34,7 @@ description = {
 }
 
 source = {
-  url = '$repo_url/archive/$git_ref.zip',
+  url = '$source_url',
   dir = '$package'
 }
 
@@ -45,7 +56,6 @@ local content = template:gsub("$package", repo_name)
     :gsub("$license", license)
     :gsub("$dependencies", dependencies)
     :gsub("$test_dependencies", test_dependencies)
-    :gsub("$repo_url", repo_url)
-    :gsub("$git_ref", git_ref)
+    :gsub("$source_url", source_url)
 
 print(content)
